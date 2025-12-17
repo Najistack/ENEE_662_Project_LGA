@@ -1,4 +1,3 @@
-The project studies how to maximize entanglement rates in a quantum satellite network by formulating the scheduling problem as an optimization problem and comparing multiple heuristic solutions.
 
 **Methods Implemented**
 
