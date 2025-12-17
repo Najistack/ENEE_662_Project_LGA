@@ -1,30 +1,57 @@
-% Compute algorithm statistics over many randomized trials
+function [] = main()
+    % === TEST SCRIPT FOR SATELLITE-GROUND CONNECTION ALGORITHMS ===
+    % Mostly based on the original fixed_test_satellite_routing_algorithms
+    % but now we have a main function that initializes and sets up a for
+    % loop that steps through each time slice of the wij matrix.
+    %
+    % We're only going to look at the first 110 indices of the wij matrix
+    % (rest of it seems to produce very little pairing...)
+    %
+    
+    do_plot = 0;        % If you want to look at the bar plots...
 
-N_trials = 20;
+    %% Simulation is based on computed slant range data.  Go get it here.
+    [wij,F]=compile_wij;
+    wij = wij(:,:,1:110);           % Only looking at first 110 minutes
 
-% Optimal values
-random_opt = zeros(N_trials,1);         % Random choice algo
-lgreed_opt = zeros(N_trials,1);         % Local greedy algo
-ggreed_opt = zeros(N_trials,1);         % Global greedy algo
-cvx_opt = zeros(N_trials,1);            % Convex optimization
+    %% === Parameter Initialization ===
 
-% Algorithm run time
-random_t = zeros(N_trials,1);           % Random choice algo
-lgreed_t = zeros(N_trials,1);           % Local greedy algo
-ggreed_t = zeros(N_trials,1);           % Global greedy algo
-cvx_t = zeros(N_trials,1);              % Convex optimization
+    numSat = size(wij,1);           % Number of satellites
+    numGS = numel(unique(F(:)));    % Number of ground stations
+    numPairs = size(F,1);           % Number of ground station pairs
 
-% Compute statistics
-for k = 1:N_trials
-    [random_opt(k),lgreed_opt(k),ggreed_opt(k),cvx_opt(k),...
-        random_t(k),lgreed_t(k),ggreed_t(k),cvx_t(k)] = fixed_test_satellite_routing_algorithms_no_plots();
+    % --- Satellite capacity (Ti): connections each satellite can make
+    Ti = ones(numSat,1);
+
+    % --- Pair capacity (Lj): how many total connections allowed per pair
+    Lj = ones(numPairs);
+
+    % --- Receivers available per ground station (Rg) ---
+    Rg = ones(numGS,1);
+
+    % --- Initialize optimal values ---
+    rand_val = zeros(size(wij,3), 1);    % Random algorithm
+    local_val = zeros(size(wij,3),1);    % Local greedy algorithm
+    global_val = zeros(size(wij,3),1);   % Global greedy algorithm
+    cvx_val = zeros(size(wij,3),1);      % relaxed convex algorithm
+
+    % --- Loop through each instance of time ---
+    for t = 1:size(wij,3)
+        % --- Compute decision variables ---
+        [ran,loc,glo,cvx] = test_satellite_routing_algorithms(wij(:,:,t),F,Ti,Lj,Rg,do_plot);
+
+        % -- Compute optimal values ---
+        rand_val(t) = sum(sum(ran.xij .* wij(:,:,t)));
+        local_val(t) = sum(sum(loc.xij .* wij(:,:,t)));
+        global_val(t) = sum(sum(glo.xij .* wij(:,:,t)));
+        cvx_val(t) = sum(sum(cvx.xij .* wij(:,:,t)));
+    end
+
+    %% === Plot Results ===
+    tbase = 1:size(wij,3);
+    figure(1)
+    plot(tbase,rand_val,'b-',tbase,local_val,'r-',tbase,global_val,'g-',tbase,cvx_val,'k-');
+    grid minor; xlabel('time index'); ylabel('entanglement rate')
+    legend('random','local greedy', 'global greedy', 'relaxed convex')
+
 end
-
-% Plot distributions
-figure(1); hist([random_opt lgreed_opt ggreed_opt cvx_opt]); legend('random','local','global','cvx'); grid on; xlabel('optimal value')
-figure(2); hist([random_t lgreed_t ggreed_t cvx_t]); legend('random','local','global','cvx'); grid on; xlabel('run time')
-
-fprintf('mean random optimal value: %0.6f\n', mean(random_opt));
-fprintf('mean local optimal value: %0.6f\n', mean(lgreed_opt));
-fprintf('mean global optimal value: %0.6f\n', mean(ggreed_opt));
-fprintf('mean cvx optimal value: %0.6f\n', mean(cvx_opt));
