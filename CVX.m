@@ -8,7 +8,7 @@ function [xij_cvx] = CVX(C, xij, Ti, Lj, Rg, F, wij)
 
     cvx_begin quiet
         variable xij(numSats,numPairs)
-        minimize( -1 * sum(sum(xij .* wij)) )
+        minimize( -1 * sum(sum(xij .* wij .^ .5)) )
 
         subject to
             xij >= 0;
@@ -33,7 +33,7 @@ function [xij_cvx] = CVX(C, xij, Ti, Lj, Rg, F, wij)
 
     cvx_end
 
-    % Round to nearest integer (0 or 1) after solving relaxation
+    % % Round to nearest integer (0 or 1) after solving relaxation
     xij_cvx = round(xij);
 
 end
